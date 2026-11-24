@@ -1,0 +1,79 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: smart-messenger-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    networks: [smart-messenger-net]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  backend:
+    build: ./backend
+    container_name: smart-messenger-backend
+    restart: unless-stopped
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/smart_messenger_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:?Set SPRING_DATASOURCE_PASSWORD in .env}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_API_URL: ${GROQ_API_URL:-https://api.groq.com/openai/v1/chat/completions}
+      GROQ_MODEL: ${GROQ_MODEL:-openai/gpt-oss-120b}
+      SMTP_HOST: ${SMTP_HOST:-localhost}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      UPLOAD_DIR: /app/uploads
+      WEBSOCKET_ALLOWED_ORIGINS: ${WEBSOCKET_ALLOWED_ORIGINS:-http://localhost:*,http://127.0.0.1:*}
+      JPA_SHOW_SQL: ${JPA_SHOW_SQL:-false}
+      JPA_FORMAT_SQL: ${JPA_FORMAT_SQL:-false}
+    volumes:
+      - messenger_uploads:/app/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/8080'"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks: [smart-messenger-net]
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+    container_name: smart-messenger-web
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8088}:80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks: [smart-messenger-net]
+
+volumes:
+  mysql_data:
+  messenger_uploads:
+
+networks:
+  smart-messenger-net:
+    driver: bridge

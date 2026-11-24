@@ -1,0 +1,12 @@
+# Keep build contexts small and exclude secrets/runtime data
+.git
+.env
+.env.*
+!*.example
+**/node_modules
+**/dist
+**/target
+backups
+uploads
+**/uploads
+*.log

@@ -1,0 +1,60 @@
+package com.smartmessenger.dto;
+
+import com.smartmessenger.model.Message;
+import com.smartmessenger.model.MessageType;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class ChatMessageDto {
+    private Long id;
+    private Long conversationId;
+    private Long senderId;
+    private String senderName;
+    private String senderAvatar;
+    private String content;
+    private MessageType messageType;
+    private LocalDateTime createdAt;
+    private LocalDateTime editedAt;
+    private LocalDateTime readAt;
+    private boolean deleted;
+    private Long replyToId;
+    private String replyPreview;
+    private String replySenderName;
+    private Map<String, List<Long>> reactions;
+
+    public static ChatMessageDto fromEntity(Message message) {
+        return ChatMessageDto.builder()
+                .id(message.getId())
+                .conversationId(message.getConversation().getId())
+                .senderId(message.getSender() != null ? message.getSender().getId() : null)
+                .senderName(message.getSender() != null ? message.getSender().getFullName()
+                        : message.getMessageType() == MessageType.AI ? "AI" : "Hệ thống")
+                .senderAvatar(message.getSender() != null ? message.getSender().getAvatarUrl() : "https://api.dicebear.com/7.x/bottts/svg?seed=ai")
+                .content(message.getContent())
+                .messageType(message.getMessageType())
+                .createdAt(message.getCreatedAt())
+                .editedAt(message.getEditedAt())
+                .readAt(message.getReadAt())
+                .deleted(message.isDeleted())
+                .replyToId(message.getReplyTo() != null ? message.getReplyTo().getId() : null)
+                .replyPreview(message.getReplyTo() == null ? null : message.getReplyTo().isDeleted()
+                        ? "Tin nhắn đã bị xóa" : message.getReplyTo().getMessageType() == MessageType.IMAGE
+                        ? "Ảnh" : message.getReplyTo().getMessageType() == MessageType.FILE
+                        ? "Tệp" : message.getReplyTo().getContent())
+                .replySenderName(message.getReplyTo() != null
+                        ? message.getReplyTo().getSender() != null
+                        ? message.getReplyTo().getSender().getFullName()
+                        : message.getReplyTo().getMessageType() == MessageType.AI ? "AI" : "Hệ thống" : null)
+                .build();
+    }
+}
